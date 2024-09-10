@@ -102,6 +102,16 @@
   </div>
 
   <script>
+  // Function to detect mobile devices
+    function isMobileDevice() {
+      return /Mobi|Android/i.test(navigator.userAgent);
+    }
+
+    // Redirect to mobile page if on mobile device
+    if (isMobileDevice()) {
+      window.location.href = "/mobile";
+    }
+    
     const canvas = document.getElementById('drawingCanvas');
     const ctx = canvas.getContext('2d');
     const colorPicker = document.getElementById('colorPicker');
