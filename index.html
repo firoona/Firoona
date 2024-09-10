@@ -1,59 +1,316 @@
-
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Firoona</title>
-    
-    <link rel="icon" href="https://i.ibb.co/PZcMJhC/IMG-2313.png" type="image/x-icon"> 
-    <!-- For iOS devices -->
-    <link rel="apple-touch-icon" href="https://i.ibb.co/PZcMJhC/IMG-2313.png">
-    <!-- For other devices -->
-    <link rel="shortcut icon" href="https://i.ibb.co/PZcMJhC/IMG-2313.png" type="image/png">
-    
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #f7f7f7;
-            text-align: center;
-        }
-
-        .container {
-            max-width: 600px;
-            margin: 50px auto;
-            padding: 20px;
-            background-color: #fff;
-            border-radius: 20px;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
-        }
-
-        .logo {
-            width: 100px;
-            height: 100px;
-            border-radius: 20px;
-            margin-bottom: 20px;
-        }
-
-        .play-store-badge {
-            width: 200px;
-            margin-top: 20px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Storyboard Drawing Tool</title>
+  <style>
+    body { 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      overflow: hidden;
+      background-color: #f7f7f7;
+    }
+    #toolbar {
+      display: flex;
+      margin-bottom: 10px;
+      align-items: center;
+    }
+    #toolbar button, #brushSize, #alphaValue {
+      margin-right: 10px;
+      padding: 10px;
+      cursor: pointer;
+      border: 2px solid #bba2ff;
+      background-color: white;
+    }
+    #toolbar .selected {
+      background-color: #bba2ff;
+      color: white;
+    }
+    #canvas-container {
+      width: 80%;
+      max-width: 1200px;
+      height: 675px; /* 16:9 aspect ratio */
+      border: 2px solid #bba2ff;
+      margin-bottom: 20px;
+      background-color: white;
+      position: relative; /* To position onion skin images correctly */
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+    }
+    #scene-preview-container {
+      display: flex;
+      align-items: center;
+    }
+    .scene-preview {
+      width: 150px;
+      height: 84px;
+      border: 1px solid #ddd;
+      margin-right: 10px;
+    }
+    #add-scene-btn, #clearCanvasBtn, #togglePrevious, #toggleUpcoming {
+      padding: 10px;
+      font-size: 18px;
+      cursor: pointer;
+      margin-left: 10px;
+      border: 2px solid #bba2ff;
+      background-color: white;
+    }
+    #add-scene-btn:hover, #clearCanvasBtn:hover, #togglePrevious:hover, #toggleUpcoming:hover {
+      background-color: #bba2ff;
+      color: white;
+    }
+  </style>
 </head>
-
 <body>
-    <div class="container">
-        <img src="https://i.ibb.co/KqYHXcT/icon.png" alt="Firoona Logo" class="logo">
-        <h1>Firoona</h1>
-        <p>Storyboard your film, game design, animation, and creative projects.</p>
-        <a href="https://play.google.com/store/apps/details?id=com.storyboardapp" target="_blank">
-            <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Google Play Store Badge" class="play-store-badge">
-        </a>
-    </div>
-</body>
 
+  <div id="toolbar">
+    <input type="color" id="colorPicker" value="#000000">
+    <button id="pencilMode" class="selected">Pencil Mode</button>
+    <button id="eraserMode">Eraser Mode</button>
+    <label for="brushSize">Brush Size:</label>
+    <input type="range" id="brushSize" min="1" max="20" value="2">
+    <label for="alphaValue">Alpha:</label>
+    <input type="range" id="alphaValue" min="0" max="1" step="0.01" value="1">
+    <button id="clearCanvasBtn">Clear</button>
+
+   
+
+  </div>
+
+  <div id="canvas-container">
+    <canvas id="drawingCanvas" width="1920" height="1080"></canvas>
+  </div>
+
+  <div id="scene-preview-container">
+    <div id="scenes">
+      <canvas class="scene-preview" id="scene1Preview"></canvas>
+    </div>
+    <button id="add-scene-btn">+</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('drawingCanvas');
+    const ctx = canvas.getContext('2d');
+    const colorPicker = document.getElementById('colorPicker');
+    const pencilMode = document.getElementById('pencilMode');
+    const eraserMode = document.getElementById('eraserMode');
+    const brushSize = document.getElementById('brushSize');
+    const alphaValue = document.getElementById('alphaValue');
+    const clearCanvasBtn = document.getElementById('clearCanvasBtn');
+    const togglePreviousBtn = document.getElementById('togglePrevious');
+    const toggleUpcomingBtn = document.getElementById('toggleUpcoming');
+    const scenesContainer = document.getElementById('scenes');
+    const addSceneBtn = document.getElementById('add-scene-btn');
+
+    let isDrawing = false;
+    let mode = 'pencil'; // Default mode is pencil
+    let scenes = [];
+    let currentSceneIndex = 0;
+    let currentAlpha = alphaValue.value; // Default alpha is 1
+    let showPrevious = false;
+    let showUpcoming = false;
+
+    // Set initial color and canvas properties
+    ctx.strokeStyle = colorWithAlpha(colorPicker.value, currentAlpha);
+    ctx.lineWidth = brushSize.value;
+
+    // Color picker change
+    colorPicker.addEventListener('change', (e) => {
+      ctx.strokeStyle = colorWithAlpha(e.target.value, currentAlpha);
+    });
+
+    // Brush size change
+    brushSize.addEventListener('input', (e) => {
+      ctx.lineWidth = e.target.value;
+    });
+
+    // Alpha value change
+    alphaValue.addEventListener('input', (e) => {
+      currentAlpha = e.target.value;
+      ctx.strokeStyle = colorWithAlpha(colorPicker.value, currentAlpha);
+    });
+
+    // Pencil mode button click
+    pencilMode.addEventListener('click', () => {
+      mode = 'pencil';
+      selectMode(pencilMode);
+    });
+
+    // Eraser mode button click
+    eraserMode.addEventListener('click', () => {
+      mode = 'eraser';
+      selectMode(eraserMode);
+    });
+
+    function selectMode(selectedButton) {
+      pencilMode.classList.remove('selected');
+      eraserMode.classList.remove('selected');
+      selectedButton.classList.add('selected');
+    }
+
+    // Adjust mouse position to account for canvas scaling
+    function getMousePos(event) {
+      const rect = canvas.getBoundingClientRect(); // Get canvas position and size
+      const scaleX = canvas.width / rect.width;   // Scale for width
+      const scaleY = canvas.height / rect.height; // Scale for height
+
+      return {
+        x: (event.clientX - rect.left) * scaleX,
+        y: (event.clientY - rect.top) * scaleY
+      };
+    }
+
+    // Helper to add alpha to color
+    function colorWithAlpha(color, alpha) {
+      const r = parseInt(color.slice(1, 3), 16);
+      const g = parseInt(color.slice(3, 5), 16);
+      const b = parseInt(color.slice(5, 7), 16);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    // Drawing event listeners
+    canvas.addEventListener('mousedown', (e) => {
+      isDrawing = true;
+      const pos = getMousePos(e);
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y);
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (isDrawing) {
+        const pos = getMousePos(e);
+        if (mode === 'pencil') {
+          ctx.lineTo(pos.x, pos.y);
+          ctx.stroke();
+        } else if (mode === 'eraser') {
+          ctx.clearRect(pos.x - ctx.lineWidth / 2, pos.y - ctx.lineWidth / 2, ctx.lineWidth, ctx.lineWidth);
+        }
+      }
+    });
+
+    canvas.addEventListener('mouseup', () => {
+      isDrawing = false;
+      saveScenePreview();
+    });
+
+    function saveScenePreview() {
+      const previewCanvas = document.getElementById(`scene${currentSceneIndex + 1}Preview`);
+      const previewCtx = previewCanvas.getContext('2d');
+      previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height); // Clear previous drawing
+      previewCtx.drawImage(canvas, 0, 0, previewCanvas.width, previewCanvas.height);
+      scenes[currentSceneIndex] = canvas.toDataURL(); // Save current scene as image data
+    }
+
+    // Clear canvas button
+    clearCanvasBtn.addEventListener('click', () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the current canvas
+      scenes[currentSceneIndex] = null; // Mark this scene as empty
+      saveScenePreview(); // Save the cleared canvas to the current scene preview
+    });
+
+    // Add new scene
+    addSceneBtn.addEventListener('click', () => {
+      // Save current scene
+      const sceneData = canvas.toDataURL();
+      scenes[currentSceneIndex] = sceneData;
+
+      // Create new scene
+      currentSceneIndex++;
+      const newPreview = document.createElement('canvas');
+      newPreview.classList.add('scene-preview');
+      newPreview.id = `scene${currentSceneIndex + 1}Preview`;
+      newPreview.width = 150;
+      newPreview.height = 84;
+      scenesContainer.appendChild(newPreview);
+
+      // Clear the canvas for the new scene
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    });
+
+    // Load a scene
+    function loadScene(index) {
+      // First, save the current scene before switching
+      saveScenePreview();
+
+      // Set the new scene index
+      currentSceneIndex = index;
+
+      // Clear the canvas before loading a new scene
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+           // Show the selected scene's content, or clear if it's empty
+           const sceneData = scenes[index];
+      if (sceneData) {
+        const img = new Image();
+        img.src = sceneData;
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0);
+        };
+      } else {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    }
+
+    // Handle clicking on scene previews to load the corresponding scene
+    scenesContainer.addEventListener('click', (e) => {
+      if (e.target.classList.contains('scene-preview')) {
+        const sceneId = e.target.id.replace('scene', '').replace('Preview', '');
+        const sceneIndex = parseInt(sceneId, 10) - 1; // Convert to 0-based index
+        loadScene(sceneIndex); // Load the selected scene
+      }
+    });
+
+    // Toggle Onion Skin for previous scene
+    togglePreviousBtn.addEventListener('click', () => {
+      showPrevious = !showPrevious;
+      if (showPrevious && currentSceneIndex > 0) {
+        const previousSceneData = scenes[currentSceneIndex - 1];
+        if (previousSceneData) {
+          const img = new Image();
+          img.src = previousSceneData;
+          img.onload = () => {
+            ctx.globalAlpha = 0.5; // Set transparency for onion skin effect
+            ctx.drawImage(img, 0, 0);
+            ctx.globalAlpha = 1; // Reset transparency after drawing
+          };
+        }
+      } else {
+        loadScene(currentSceneIndex); // Reload the current scene to remove onion skin effect
+      }
+    });
+
+    // Toggle Onion Skin for upcoming scene
+    toggleUpcomingBtn.addEventListener('click', () => {
+      showUpcoming = !showUpcoming;
+      if (showUpcoming && currentSceneIndex < scenes.length - 1) {
+        const upcomingSceneData = scenes[currentSceneIndex + 1];
+        if (upcomingSceneData) {
+          const img = new Image();
+          img.src = upcomingSceneData;
+          img.onload = () => {
+            ctx.globalAlpha = 0.5; // Set transparency for onion skin effect
+            ctx.drawImage(img, 0, 0);
+            ctx.globalAlpha = 1; // Reset transparency after drawing
+          };
+        }
+      } else {
+        loadScene(currentSceneIndex); // Reload the current scene to remove onion skin effect
+      }
+    });
+
+    // Initialize the first scene
+    scenes[0] = null;
+    saveScenePreview();
+
+  </script>
+</body>
 </html>
+
